@@ -3,6 +3,8 @@ import cors from 'cors'
 import 'dotenv/config'
 import mongoose from 'mongoose'
 import userRoute from './routes/UserRoute'
+import { v2 as cloudinary } from 'cloudinary';
+import restaurantRoute from './routes/Restaurant'
 
 mongoose
     .connect(process.env.MONGODB_CONNECTION_STRING as string)
@@ -12,9 +14,15 @@ mongoose
     .catch(error => console.log(error))
 
 
+cloudinary.config({ 
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+    api_key: process.env.CLOUD_API_KEY, 
+    api_secret:  process.env.CLOUD_SECRET_KEY
+});
+
 const app = express()
 
-app.use(express.json())
+app.use(express.json({limit:'50mb'}))
 app.use(cors())
 
 
@@ -23,6 +31,9 @@ app.get('/test',(req:Request, res: Response)=>{
 })
 
 app.use("/api/my/user",userRoute)
+
+app.use("/api/my/restaurant",restaurantRoute)
+
 
 app.listen(7000,() => {
     console.log(`App listen on port ${7000}`)
