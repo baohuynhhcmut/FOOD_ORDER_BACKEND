@@ -1,113 +1,86 @@
 import { Request,Response } from "express";
 import Restaurant from "../model/restaurant";
-import { v2 as cloudinary } from 'cloudinary';
-import mongoose from "mongoose";
 
-const createRestaurant = async (req:Request,res:Response) => {
+const searchRestaurant = async (req:Request,res:Response) => {
     try {
-        const existRestaurant = await Restaurant.findOne({
-            user:req.userID
-        })
+        const city = req.params.city
         
-        if(existRestaurant){
-            res.status(409).json({
-                message:'Restaurant already exist'
-            })
-            return;
-        }
-        const image = req.file as Express.Multer.File 
+
+        const searchQuery = (req.query.searchQuery as string) || ''
+        const selectedCuisines = (req.query.selectedCuisines as string) || ''
+        const sortOption = (req.query.sortOption as string) || 'lastUpdate'
+        const page = parseInt(req.query.page as string) || 1
+        const pageSize = 3;
+        const skip = (page-1)*pageSize
         
-        const base64Image = Buffer.from(image.buffer).toString("base64")
+        const query : any = {}
 
-        const dataURI = `data:${image.mimetype};base64,${base64Image}`;
+        query['city'] = new RegExp(city,'i')
+        const cityCheck = await Restaurant.countDocuments(query)
 
-        const uploadRespone = await cloudinary.uploader.upload(dataURI);
-
-        const newRestaurant = new Restaurant(req.body)
-        newRestaurant.imageUrl = uploadRespone.url
-        newRestaurant.lastUpdate = new Date()
-        newRestaurant.user = new mongoose.Types.ObjectId(req.userID)
-        await newRestaurant.save()
-
-        res.status(200).json(newRestaurant.toObject())
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({
-            message:'Something went wrong'
-        })
-    }
-
-}
-
-
-
-const getRestaurant = async (req:Request,res:Response) => {
-    try {
-        const restaurant = await Restaurant.findOne(
-            {user: req.userID}
-        )
-        if(!restaurant){
-            res.status(404).json({
-                message:'Restaurant not exist'
-            })
-            return;
-        }
-        res.status(200).json(restaurant)
-    } catch (error) {
-        console.log(error) 
-        res.status(500).json({
-            message: 'Faild to get restaurant'
-        })
-    }
-}
-
-const updateMyRestaurant = async (req:Request,res:Response) => {
-    try {
-        const myRestaurant = await Restaurant.findOne(
-            {user:req.userID}
-        )
-
-        if(!myRestaurant){
-            res.status(404).json({
-                message:'User not found'
-            })
-            return ;
+        if (cityCheck === 0) {
+          res.status(400).json({
+            data: [],
+            pagination: {
+              total: 0,
+              page: 1,
+              pages: 1,
+            },
+          });
+          return;
         }
 
-        myRestaurant.restaurantName = req.body.restaurantName
-        myRestaurant.city = req.body.city
-        myRestaurant.country = req.body.country
-        myRestaurant.cuisine = req.body.cuisine
-        myRestaurant.deliveryPrice = req.body.deliveryPrice
-        myRestaurant.estimateDeliveryTime = req.body.estimateDeliveryTime
-        myRestaurant.menuItem = req.body.menuItem
-        myRestaurant.lastUpdate = new Date()
-        if(req.file){
-            const image = req.file as Express.Multer.File 
-        
-            const base64Image = Buffer.from(image.buffer).toString("base64")
-
-            const dataURI = `data:${image.mimetype};base64,${base64Image}`;
-
-            const uploadRespone = await cloudinary.uploader.upload(dataURI);
-
-            myRestaurant.imageUrl = uploadRespone.url
+        if(selectedCuisines){
+            const cuisineArray = selectedCuisines
+                                    .split(',')
+                                    .map((cuisineItem) => new RegExp(cuisineItem,'i'))                        
+            query['cuisines'] = {$all: cuisineArray}
         }
 
-        await myRestaurant.save()
+        if(searchQuery){
+            const searchRegex = new RegExp(searchQuery,'i')
+            query['$or'] = [
+                {restaurantName: searchRegex},
+                {cuisines: {$in: [searchRegex]}}
+            ]
+        }  
 
-        res.status(200).json(myRestaurant)
+        const restaurants = await Restaurant
+                                    .find(query)
+                                    .sort({[sortOption]:1})
+                                    .skip(skip)
+                                    .limit(pageSize)
+                                    .lean()
+                                 
+
+        const total = await Restaurant.countDocuments(query)
+
+        const respone = {
+            data: restaurants,
+            pagination: { 
+                total,
+                page,
+                pages: Math.ceil(total/pageSize),
+            }
+        }
+
+        res.status(200).json(respone)
 
     } catch (error) {
         console.log(error)
-        res.status(500).json({
-            message:'Fail to update restaurant'
-        })
+        res.status(500).json({message:'Fail to search'})
     }
 }
 
-export default {
-    createRestaurant,
-    getRestaurant,
-    updateMyRestaurant
+
+function removeVietnameseTones(str:string) {
+    return str
+        .normalize("NFD") // Tách dấu khỏi chữ cái
+        .replace(/[\u0300-\u036f]/g, "") // Xóa dấu
+        .replace(/đ/g, "d") // Chuyển đổi "đ" thành "d"
+        .replace(/Đ/g, "D"); // Chuyển đổi "Đ" thành "D"
+}
+
+export default  {
+    searchRestaurant
 }

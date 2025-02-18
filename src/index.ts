@@ -4,7 +4,8 @@ import 'dotenv/config'
 import mongoose from 'mongoose'
 import userRoute from './routes/UserRoute'
 import { v2 as cloudinary } from 'cloudinary';
-import restaurantRoute from './routes/Restaurant'
+import myRestaurantRoute from './routes/MyRestaurant'
+import resRoute from "./routes/Restaurant"
 
 mongoose
     .connect(process.env.MONGODB_CONNECTION_STRING as string)
@@ -32,7 +33,9 @@ app.get('/test',(req:Request, res: Response)=>{
 
 app.use("/api/my/user",userRoute)
 
-app.use("/api/my/restaurant",restaurantRoute)
+app.use("/api/my/restaurant",myRestaurantRoute)
+
+app.use("/api/restaurant",resRoute)
 
 
 app.listen(7000,() => {

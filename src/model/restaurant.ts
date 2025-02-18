@@ -32,11 +32,11 @@ const restaurantSchema = new mongoose.Schema({
         type:Number,
         require:true
     },
-    estimateDeliveryTime:{
+    estimatedDeliveryTime:{
         type:Number,
         require:true
     },
-    cuisine:[{
+    cuisines:[{
         type:String,
         require:true
     }],

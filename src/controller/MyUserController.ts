@@ -4,7 +4,7 @@ import User from "../model/user";
 const createCurrentUser = async (req:Request,res:Response) =>{
     try {
         const {auth0ID} = req.body;
-        console.log(req.body)
+       
         const existUser = await User.findOne({
             auth0ID: auth0ID
         })
